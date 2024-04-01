@@ -159,6 +159,8 @@ $ cat /tmp/.xz
 uid=0(root) gid=0(root) groups=0(root)
 ```
 
+*Note: successful exploitation does not generate any log entries.*
+
 # References
 
 - https://www.openwall.com/lists/oss-security/2024/03/29/4
