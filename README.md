@@ -171,12 +171,15 @@ process tree:
 # normal process tree
 $ ssh foo@bar
 $ ps -ef --forest
-root         931     765  1 18:04 ?        00:00:00  \_ sshd: root@pts/1
-root         938     931  0 18:04 pts/1    00:00:00      \_ -bash
+root         765       1  0 17:58 ?        00:00:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+root        1026     765  7 18:51 ?        00:00:00  \_ sshd: foo [priv]
+foo         1050    1026  0 18:51 ?        00:00:00      \_ sshd: foo@pts/1
+foo         1051    1050  0 18:51 pts/1    00:00:00          \_ -bash
 
 # backdoor process tree
 $ xzbot -cmd 'sleep 60'
 $ ps -ef --forest
+root         765       1  0 17:58 ?        00:00:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
 root         941     765  4 18:04 ?        00:00:00  \_ sshd: root [priv]
 sshd         942     941  0 18:04 ?        00:00:00      \_ sshd: root [net]
 root         943     941  0 18:04 ?        00:00:00      \_ sh -c sleep 60
