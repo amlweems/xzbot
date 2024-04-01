@@ -168,13 +168,21 @@ uid=0(root) gid=0(root) groups=0(root)
 The process tree after exploitation looks different from a normal sshd
 process tree:
 ```
-# normal process tree
-$ ssh foo@bar
+# normal process tree of command executed via ssh
+$ ssh foo@bar 'sleep 60'
 $ ps -ef --forest
 root         765       1  0 17:58 ?        00:00:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
 root        1026     765  7 18:51 ?        00:00:00  \_ sshd: foo [priv]
 foo         1050    1026  0 18:51 ?        00:00:00      \_ sshd: foo@pts/1
-foo         1051    1050  0 18:51 pts/1    00:00:00          \_ -bash
+foo         1051    1050  0 18:51 pts/1    00:00:00          \_ sleep 60
+
+# normal process tree of command executed via ssh using -T Disable pseudo-terminal allocation.
+$ ssh -T foo@bar 'sleep 60'
+$ ps -ef --forest
+root         765       1  0 17:58 ?        00:00:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+root        1026     765  7 18:51 ?        00:00:00  \_ sshd: foo [priv]
+foo         1050    1026  0 18:51 ?        00:00:00      \_ sshd: foo@notty
+foo         1051    1050  0 18:51 ?        00:00:00          \_ sleep 60
 
 # backdoor process tree
 $ xzbot -cmd 'sleep 60'
