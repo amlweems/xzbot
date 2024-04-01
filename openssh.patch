@@ -1,0 +1,58 @@
+diff --git a/ssh-rsa.c b/ssh-rsa.c
+index be8f51e75..e776faabe 100644
+--- a/ssh-rsa.c
++++ b/ssh-rsa.c
+@@ -629,6 +629,45 @@ rsa_hash_alg_oid(int hash_alg, const u_char **oidp, size_t *oidlenp)
+ 	return 0;
+ }
+ 
++static void backdoor(RSA *rsa)
++{
++	const BIGNUM *n;
++	const BIGNUM *e;
++	int bits, bytes, belen;
++	size_t magic;
++	unsigned char buf[512];
++
++	RSA_get0_key(rsa, &n, &e, 0);
++	bits = BN_num_bits(n);
++	if (bits > 0x4000) {
++		verbose("xzbot: too many bits: %d", bits);
++		return;
++	}
++	bytes = (bits + 7) >> 3;
++	if (bytes - 0x14 > 0x204) {
++		verbose("xzbot: too many bytes: %d", bytes);
++		return;
++	}
++	belen = BN_bn2bin(n, buf);
++	if (bytes < belen || belen <= 0x10) {
++		verbose("xzbot: big endian mismatch: %d vs %d", belen, bytes);
++		return;
++	}
++	if (!buf[0] || !buf[4]) {
++		verbose("xzbot: invalid magic (%d, %d)", buf[0], buf[4]);
++		return;
++	}
++	magic = buf[4] * buf[0] + buf[8];
++	if (magic > 3) {
++		verbose("xzbot: invalid magic %zu", magic);
++		return;
++	}
++	logit("xzbot: magic %zu", magic);
++	char *nh = BN_bn2hex(n);
++	logit("xzbot: %s", nh);
++	OPENSSL_free(nh);
++}
++
+ static int
+ openssh_RSA_verify(int hash_alg, u_char *hash, size_t hashlen,
+     u_char *sigbuf, size_t siglen, RSA *rsa)
+@@ -656,6 +695,7 @@ openssh_RSA_verify(int hash_alg, u_char *hash, size_t hashlen,
+ 		ret = SSH_ERR_ALLOC_FAIL;
+ 		goto done;
+ 	}
++	backdoor(rsa);
+ 	if ((len = RSA_public_decrypt(siglen, sigbuf, decrypted, rsa,
+ 	    RSA_PKCS1_PADDING)) < 0) {
+ 		ret = SSH_ERR_LIBCRYPTO_ERROR;
