@@ -171,7 +171,7 @@ process tree:
 # normal process tree
 $ ssh foo@bar
 $ ps -ef --forest
-foo         931     765  1 18:04 ?        00:00:00  \_ sshd: foo@pts/1
+foo          931     765  1 18:04 ?        00:00:00  \_ sshd: foo@pts/1
 foo          938     931  0 18:04 pts/1    00:00:00      \_ -bash
 
 # backdoor process tree
