@@ -75,7 +75,7 @@ signed with the attacker's ED448 key.
 The structure has the following format:
 ```
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-| cmd1 (32 bit) | cmd2 (32 bit) |         cmd3 (64 bit)         |
+|   a (32 bit)  |   b (32 bit)  |           c (64 bit)          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                     ciphertext (240 bytes)                    +
@@ -83,8 +83,12 @@ The structure has the following format:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-A command byte is derived from the three magic values above (`cmd1 * cmd2 + cmd3`).
+A request type is derived from the three values above (`a * b + c`).
 If this value is greater than 3, the backdoor skips processing.
+
+* Type 1: unknown, expects zero bytes
+* Type 2: executes null-terminated payload with system()
+* Type 3: unknown, expects 48 bytes (signed)
 
 The ciphertext is encrypted with chacha20 using the first 32 bytes of the
 ED448 public key as a symmetric key. As a result, we can decrypt any
@@ -97,13 +101,22 @@ exploit attempt using the following key:
 The ciphertext has the following format:
 ```
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|     signature (114 bytes)     |  command \x00 |    padding    |
+|                    signature (114 bytes)                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| x (1 bit) |            unused ? (14 bit)          | y (1 bit) |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|        unknown (8 bit)        |         length (8 bit)        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|        unknown (8 bit)        |         command \x00          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
+Setting either `x` or `y` leads to slightly different code paths.
+
 The signature is an RFC-8032 ED448 signature computed over the following values:
-* The first 4 bytes of the header (i.e. cmd1)
-* The first 5 bytes of the command
+* The 32-bit magic value (e.g. `02 00 00 00`)
+* The 5 bytes of fields before command
+* [optional] `length` bytes of the command
 * The first 32 bytes of the sha256 hash of the server's hostkey
 
 # backdoor demo

