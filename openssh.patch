@@ -1,8 +1,8 @@
 diff --git a/ssh-rsa.c b/ssh-rsa.c
-index be8f51e75..e776faabe 100644
+index be8f51e75..8912d2d8f 100644
 --- a/ssh-rsa.c
 +++ b/ssh-rsa.c
-@@ -629,6 +629,45 @@ rsa_hash_alg_oid(int hash_alg, const u_char **oidp, size_t *oidlenp)
+@@ -629,6 +629,48 @@ rsa_hash_alg_oid(int hash_alg, const u_char **oidp, size_t *oidlenp)
  	return 0;
  }
  
@@ -34,7 +34,10 @@ index be8f51e75..e776faabe 100644
 +		verbose("xzbot: invalid magic (%d, %d)", buf[0], buf[4]);
 +		return;
 +	}
-+	magic = buf[4] * buf[0] + buf[8];
++	uint32_t a = *(uint32_t*)&buf[0];
++	uint32_t b = *(uint32_t*)&buf[4];
++	uint64_t c = *(uint64_t*)&buf[8];
++	magic = (uint64_t) a * b + c;
 +	if (magic > 3) {
 +		verbose("xzbot: invalid magic %zu", magic);
 +		return;
@@ -48,7 +51,7 @@ index be8f51e75..e776faabe 100644
  static int
  openssh_RSA_verify(int hash_alg, u_char *hash, size_t hashlen,
      u_char *sigbuf, size_t siglen, RSA *rsa)
-@@ -656,6 +695,7 @@ openssh_RSA_verify(int hash_alg, u_char *hash, size_t hashlen,
+@@ -656,6 +698,7 @@ openssh_RSA_verify(int hash_alg, u_char *hash, size_t hashlen,
  		ret = SSH_ERR_ALLOC_FAIL;
  		goto done;
  	}
